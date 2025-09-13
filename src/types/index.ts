@@ -43,7 +43,7 @@ export interface TelegramResponse {
 export interface VkPostRequest {
   message?: string;
   attachments?: string;
-  owner_id?: number;
+  owner_id: number;
   from_group?: 0 | 1;
   signed?: 0 | 1;
 }

@@ -8,32 +8,31 @@ import {
   ApiResponse
 } from '../types';
 
-const VK_API_BASE = 'https://api.vk.com/method';
 const VK_API_VERSION = '5.199';
 
 /**
  * VK API service
  */
 export class VkService {
-  private readonly groupToken: string;
-  private readonly groupId: string;
-  private readonly apiUrl: string;
-
-  constructor() {
-    this.groupToken = process.env.VK_GROUP_TOKEN || '';
-    this.groupId = process.env.VK_GROUP_ID || '';
-    this.apiUrl = VK_API_BASE;
+  private get groupToken(): string {
+    return process.env.VK_GROUP_TOKEN || '';
+  }
+  
+  private get groupId(): string {
+    return process.env.VK_GROUP_ID || '';
+  }
+  
+  private get apiUrl(): string {
+    return process.env.VK_API_BASE || '';
   }
 
-  /**
-   * Create a post in VK group
-   */
   async createPost(data: VkPostRequest): Promise<ApiResponse> {
     try {
       // Set default values
       const postData = {
         ...data,
-        owner_id: -Math.abs(parseInt(this.groupId)),
+        // owner_id: -Math.abs(parseInt(this.groupId)),
+        owner_id: -+data.owner_id,
         from_group: 1,
         v: VK_API_VERSION,
         access_token: this.groupToken
@@ -41,7 +40,12 @@ export class VkService {
 
       const response: AxiosResponse<VkApiResponse> = await axios.post(
         `${this.apiUrl}/wall.post`,
-        postData
+        postData,
+        {
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded"
+            }
+        }
       );
 
       if (response.data.error) {
@@ -63,9 +67,7 @@ export class VkService {
     }
   }
 
-  /**
-   * Upload a photo to VK
-   */
+  
   async uploadPhoto(photoBuffer: Buffer, filename: string): Promise<ApiResponse> {
     try {
       // Step 1: Get upload URL

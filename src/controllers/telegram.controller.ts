@@ -34,6 +34,8 @@ export const validateSendMediaGroup = [
  * Send a text message to Telegram
  */
 export const sendMessage = async (req: Request, res: Response) => {
+    console.log(req.body);
+    
   try {
     // Check for validation errors
     const errors = validationResult(req);

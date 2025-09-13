@@ -1,1 +1,0 @@
-{"root":["./src/index.ts","./src/controllers/telegram.controller.ts","./src/controllers/vk.controller.ts","./src/middleware/auth.ts","./src/middleware/errorhandler.ts","./src/routes/health.routes.ts","./src/routes/telegram.routes.ts","./src/routes/vk.routes.ts","./src/services/telegram.service.ts","./src/services/vk.service.ts","./src/types/index.ts"],"version":"5.9.2"}

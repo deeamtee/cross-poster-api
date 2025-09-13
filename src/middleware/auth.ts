@@ -5,7 +5,7 @@ import { Request, Response, NextFunction } from 'express';
  */
 export const authenticateApiKey = (req: Request, res: Response, next: NextFunction) => {
   // Skip authentication for health check endpoint
-  if (req.path === '/api/health') {
+  if (req.path === '/api/health' || req.path === '/api/health/') {
     return next();
   }
 

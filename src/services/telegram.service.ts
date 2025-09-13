@@ -9,21 +9,15 @@ import {
 
 const TELEGRAM_API_BASE = 'https://api.telegram.org/bot';
 
-/**
- * Telegram API service
- */
 export class TelegramService {
-  private readonly botToken: string;
-  private readonly apiUrl: string;
-
-  constructor() {
-    this.botToken = process.env.TELEGRAM_BOT_TOKEN || '';
-    this.apiUrl = `${TELEGRAM_API_BASE}${this.botToken}`;
+  private get botToken(): string {
+    return process.env.TELEGRAM_BOT_TOKEN || '';
+  }
+  
+  private get apiUrl(): string {
+    return `${TELEGRAM_API_BASE}${this.botToken}`;
   }
 
-  /**
-   * Send a text message
-   */
   async sendMessage(data: TelegramSendMessageRequest): Promise<ApiResponse> {
     try {
       const response: AxiosResponse<TelegramResponse> = await axios.post(
@@ -44,9 +38,6 @@ export class TelegramService {
     }
   }
 
-  /**
-   * Send a photo
-   */
   async sendPhoto(data: TelegramSendPhotoRequest): Promise<ApiResponse> {
     try {
       const response: AxiosResponse<TelegramResponse> = await axios.post(
@@ -67,9 +58,6 @@ export class TelegramService {
     }
   }
 
-  /**
-   * Send a media group
-   */
   async sendMediaGroup(data: TelegramSendMediaGroupRequest): Promise<ApiResponse> {
     try {
       const response: AxiosResponse<TelegramResponse> = await axios.post(
@@ -90,9 +78,6 @@ export class TelegramService {
     }
   }
 
-  /**
-   * Handle API errors
-   */
   private handleError(error: any): ApiResponse {
     console.error('Telegram API Error:', error.response?.data || error.message);
     
@@ -115,7 +100,6 @@ export class TelegramService {
         }
       };
     } else {
-      // Something happened in setting up the request
       return {
         success: false,
         error: {

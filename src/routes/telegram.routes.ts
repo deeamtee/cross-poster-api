@@ -9,7 +9,6 @@ import {
 } from '../controllers/telegram.controller';
 
 const router = express.Router();
-
 /**
  * POST /api/telegram/sendMessage
  * Send a text message to Telegram

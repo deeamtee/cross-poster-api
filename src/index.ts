@@ -21,10 +21,7 @@ const PORT = process.env.PORT || 3000;
 app.use(helmet());
 
 // CORS configuration
-app.use(cors({
-  origin: process.env.NODE_ENV === 'development' ? 'http://localhost:5173' : undefined,
-  credentials: true
-}));
+app.use(cors())
 
 // Rate limiting
 const limiter = rateLimit({
@@ -41,7 +38,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Authentication middleware
-app.use('/api', authenticateApiKey);
+// app.use('/api', authenticateApiKey);
 
 // Routes
 app.use('/api/health', healthRoutes);
