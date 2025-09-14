@@ -5,7 +5,8 @@ import {
   sendMediaGroup,
   validateSendMessage,
   validateSendPhoto,
-  validateSendMediaGroup
+  validateSendMediaGroup,
+  upload
 } from '../controllers/telegram.controller';
 
 const router = express.Router();
@@ -19,7 +20,7 @@ router.post('/sendMessage', validateSendMessage, sendMessage);
  * POST /api/telegram/sendPhoto
  * Send a photo to Telegram
  */
-router.post('/sendPhoto', validateSendPhoto, sendPhoto);
+router.post('/sendPhoto', upload.single('photo'), sendPhoto);
 
 /**
  * POST /api/telegram/sendMediaGroup

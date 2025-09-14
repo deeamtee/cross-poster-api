@@ -1,4 +1,5 @@
 import axios, { AxiosResponse } from 'axios';
+import FormData from 'form-data';
 import {
   TelegramSendMessageRequest,
   TelegramSendPhotoRequest,
@@ -40,10 +41,43 @@ export class TelegramService {
 
   async sendPhoto(data: TelegramSendPhotoRequest): Promise<ApiResponse> {
     try {
-      const response: AxiosResponse<TelegramResponse> = await axios.post(
-        `${this.apiUrl}/sendPhoto`,
-        data
-      );
+      let response: AxiosResponse<TelegramResponse>;
+      
+      // Check if we're dealing with a file buffer (uploaded file)
+      // Using 'Buffer.isBuffer' instead of 'instanceof Buffer' for better compatibility
+      if (Buffer.isBuffer(data.photo)) {
+        // Create FormData for file upload
+        const formData = new FormData();
+        formData.append('chat_id', data.chat_id.toString());
+        formData.append('photo', data.photo, {
+          filename: 'photo.jpg',
+          contentType: 'image/jpeg'
+        });
+        
+        if (data.caption) {
+          formData.append('caption', data.caption);
+        }
+        
+        if (data.parse_mode) {
+          formData.append('parse_mode', data.parse_mode);
+        }
+
+        response = await axios.post(
+          `${this.apiUrl}/sendPhoto`,
+          formData,
+          {
+            headers: {
+              ...formData.getHeaders()
+            }
+          }
+        );
+      } else {
+        // Regular request with URL or file_id
+        response = await axios.post(
+          `${this.apiUrl}/sendPhoto`,
+          data
+        );
+      }
 
       return {
         success: response.data.ok,
