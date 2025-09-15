@@ -1,7 +1,8 @@
-import axios, { AxiosResponse } from 'axios';
+﻿import axios, { AxiosResponse } from 'axios';
 import FormData from 'form-data';
 import {
   VkPostRequest,
+  VkUploadPhotoOptions,
   VkUploadPhotoResponse,
   VkSavePhotoResponse,
   VkApiResponse,
@@ -9,52 +10,96 @@ import {
 } from '../types';
 
 const VK_API_VERSION = '5.199';
+const DEFAULT_API_URL = 'https://api.vk.com/method';
+
+type UploadPhotoParams = VkUploadPhotoOptions & {
+  photoBuffer: Buffer;
+  filename: string;
+  contentType?: string;
+};
 
 /**
  * VK API service
  */
 export class VkService {
-  private get groupToken(): string {
-    return process.env.VK_GROUP_TOKEN || '';
-  }
-  
-  private get groupId(): string {
-    return process.env.VK_GROUP_ID || '';
-  }
-  
   private get apiUrl(): string {
-    return process.env.VK_API_BASE || '';
+    return process.env.VK_API_BASE || DEFAULT_API_URL;
+  }
+
+  private resolveAccessToken(token?: string): string {
+    return typeof token === 'string' ? token.trim() : '';
   }
 
   async createPost(data: VkPostRequest): Promise<ApiResponse> {
     try {
-      // Set default values
-      const postData = {
-        ...data,
-        // owner_id: -Math.abs(parseInt(this.groupId)),
-        owner_id: -+data.owner_id,
-        from_group: 1,
+      const accessToken = this.resolveAccessToken(data.access_token);
+      if (!accessToken) {
+        return {
+          success: false,
+          error: {
+            code: 401,
+            message: 'VK access token is required'
+          }
+        };
+      }
+
+      const ownerId = Number(data.owner_id);
+      if (Number.isNaN(ownerId)) {
+        return {
+          success: false,
+          error: {
+            code: 400,
+            message: 'owner_id must be a number'
+          }
+        };
+      }
+
+      const attachments = Array.isArray(data.attachments)
+        ? data.attachments.join(',')
+        : data.attachments;
+
+      const fromGroup =
+        typeof data.from_group === 'number'
+          ? data.from_group
+          : ownerId < 0
+          ? 1
+          : 0;
+
+      const payload: Record<string, string> = {
+        owner_id: ownerId.toString(),
+        from_group: fromGroup.toString(),
         v: VK_API_VERSION,
-        access_token: this.groupToken
+        access_token: accessToken
       };
+
+      if (data.message) {
+        payload.message = data.message;
+      }
+
+      if (attachments) {
+        payload.attachments = attachments;
+      }
+
+      if (typeof data.signed === 'number') {
+        payload.signed = data.signed.toString();
+      }
+
+      const params = new URLSearchParams(payload);
 
       const response: AxiosResponse<VkApiResponse> = await axios.post(
         `${this.apiUrl}/wall.post`,
-        postData,
+        params.toString(),
         {
-            headers: {
-              "Content-Type": "application/x-www-form-urlencoded"
-            }
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          }
         }
       );
 
       if (response.data.error) {
         return {
           success: false,
-          error: {
-            code: response.data.error.error_code,
-            message: response.data.error.error_msg
-          }
+          error: this.transformVkError(response.data.error)
         };
       }
 
@@ -67,38 +112,70 @@ export class VkService {
     }
   }
 
-  
-  async uploadPhoto(photoBuffer: Buffer, filename: string): Promise<ApiResponse> {
+  async uploadPhoto({
+    photoBuffer,
+    filename,
+    contentType,
+    access_token,
+    owner_id
+  }: UploadPhotoParams): Promise<ApiResponse> {
     try {
-      // Step 1: Get upload URL
+      const accessToken = this.resolveAccessToken(access_token);
+      if (!accessToken) {
+        return {
+          success: false,
+          error: {
+            code: 401,
+            message: 'VK access token is required'
+          }
+        };
+      }
+
+      const ownerId = Number(owner_id);
+      if (Number.isNaN(ownerId)) {
+        return {
+          success: false,
+          error: {
+            code: 400,
+            message: 'owner_id must be a number'
+          }
+        };
+      }
+
+      const isGroup = ownerId < 0;
+      const normalizedGroupId = Math.abs(ownerId);
+
+      const serverParams: Record<string, any> = {
+        v: VK_API_VERSION,
+        access_token: accessToken
+      };
+
+      if (isGroup) {
+        serverParams.group_id = normalizedGroupId;
+      } else {
+        serverParams.user_id = ownerId;
+      }
+
       const uploadUrlResponse: AxiosResponse<VkApiResponse> = await axios.get(
         `${this.apiUrl}/photos.getWallUploadServer`,
         {
-          params: {
-            group_id: this.groupId,
-            v: VK_API_VERSION,
-            access_token: this.groupToken
-          }
+          params: serverParams
         }
       );
 
       if (uploadUrlResponse.data.error) {
         return {
           success: false,
-          error: {
-            code: uploadUrlResponse.data.error.error_code,
-            message: uploadUrlResponse.data.error.error_msg
-          }
+          error: this.transformVkError(uploadUrlResponse.data.error)
         };
       }
 
       const uploadUrl = uploadUrlResponse.data.response.upload_url;
 
-      // Step 2: Upload photo to VK server
       const formData = new FormData();
       formData.append('photo', photoBuffer, {
-        filename: filename,
-        contentType: 'image/jpeg'
+        filename,
+        contentType: contentType || 'application/octet-stream'
       });
 
       const uploadResponse = await axios.post(uploadUrl, formData, {
@@ -107,37 +184,62 @@ export class VkService {
 
       const uploadData: VkUploadPhotoResponse = uploadResponse.data;
 
-      // Step 3: Save photo to VK
+      const savePayload: Record<string, any> = {
+        photo: uploadData.photo,
+        server: uploadData.server,
+        hash: uploadData.hash,
+        v: VK_API_VERSION,
+        access_token: accessToken
+      };
+
+      if (isGroup) {
+        savePayload.group_id = normalizedGroupId;
+      } else {
+        savePayload.user_id = ownerId;
+      }
+
+      const saveParams = new URLSearchParams();
+      Object.entries(savePayload).forEach(([key, value]) => {
+        saveParams.append(key, String(value));
+      });
+
       const saveResponse: AxiosResponse<VkApiResponse> = await axios.post(
         `${this.apiUrl}/photos.saveWallPhoto`,
+        saveParams.toString(),
         {
-          group_id: this.groupId,
-          photo: uploadData.photo,
-          server: uploadData.server,
-          hash: uploadData.hash,
-          v: VK_API_VERSION,
-          access_token: this.groupToken
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          }
         }
       );
 
       if (saveResponse.data.error) {
         return {
           success: false,
-          error: {
-            code: saveResponse.data.error.error_code,
-            message: saveResponse.data.error.error_msg
-          }
+          error: this.transformVkError(saveResponse.data.error)
         };
       }
 
       const savedPhotos: VkSavePhotoResponse[] = saveResponse.data.response;
 
+      if (!Array.isArray(savedPhotos) || savedPhotos.length === 0) {
+        return {
+          success: false,
+          error: {
+            code: 500,
+            message: 'Failed to save photo in VK'
+          }
+        };
+      }
+
+      const photo = savedPhotos[0];
+
       return {
         success: true,
         data: {
-          id: savedPhotos[0].id,
-          owner_id: savedPhotos[0].owner_id,
-          attachment: `photo${savedPhotos[0].owner_id}_${savedPhotos[0].id}`
+          id: photo.id,
+          owner_id: photo.owner_id,
+          attachment: `photo${photo.owner_id}_${photo.id}`
         }
       };
     } catch (error: any) {
@@ -150,18 +252,24 @@ export class VkService {
    */
   private handleError(error: any): ApiResponse {
     console.error('VK API Error:', error.response?.data || error.message);
-    
+
     if (error.response) {
-      // The request was made and the server responded with a status code
+      const vkError = error.response.data?.error;
+      if (vkError) {
+        return {
+          success: false,
+          error: this.transformVkError(vkError)
+        };
+      }
+
       return {
         success: false,
         error: {
           code: error.response.status,
-          message: error.response.data?.error?.error_msg || 'VK API error'
+          message: 'VK API error'
         }
       };
     } else if (error.request) {
-      // The request was made but no response was received
       return {
         success: false,
         error: {
@@ -169,15 +277,27 @@ export class VkService {
           message: 'No response from VK API'
         }
       };
-    } else {
-      // Something happened in setting up the request
-      return {
-        success: false,
-        error: {
-          code: 500,
-          message: error.message || 'Failed to send request to VK API'
-        }
-      };
     }
+
+    return {
+      success: false,
+      error: {
+        code: 500,
+        message: error.message || 'Failed to send request to VK API'
+      }
+    };
+  }
+
+  private transformVkError(vkError: VkApiResponse['error']): { code: number; message: string } {
+    const code = vkError?.error_code ?? 500;
+    let message = vkError?.error_msg || 'VK API error';
+
+    if (code === 15) {
+      message = 'VK API access denied. Ensure the token has permissions wall, photos, groups and that the user can post to this wall.';
+    } else if (code === 214) {
+      message = 'VK API rejected the request: posting to this wall is restricted or comments are disabled.';
+    }
+
+    return { code, message };
   }
 }

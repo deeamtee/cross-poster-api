@@ -1,4 +1,4 @@
-// Telegram Types
+﻿// Telegram Types
 export interface TelegramSendMessageRequest {
   chat_id: string | number;
   text: string;
@@ -41,11 +41,17 @@ export interface TelegramResponse {
 
 // VK Types
 export interface VkPostRequest {
+  access_token: string;
+  owner_id: string | number;
   message?: string;
-  attachments?: string;
-  owner_id: number;
+  attachments?: string | string[];
   from_group?: 0 | 1;
   signed?: 0 | 1;
+}
+
+export interface VkUploadPhotoOptions {
+  access_token: string;
+  owner_id: string | number;
 }
 
 export interface VkUploadPhotoResponse {

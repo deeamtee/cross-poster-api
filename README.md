@@ -5,7 +5,7 @@ Backend proxy server for cross-posting content to Telegram and VK.
 ## Features
 
 - Proxy requests to Telegram Bot API to bypass CORS restrictions
-- Direct integration with VK API using group tokens for posting
+- VK posting endpoints that accept per-request access tokens from the frontend
 - API key authentication for security
 - Rate limiting and request validation
 - Structured logging for all API interactions
@@ -16,7 +16,7 @@ Backend proxy server for cross-posting content to Telegram and VK.
 - Node.js (v14 or higher)
 - npm or yarn
 - Telegram Bot Token
-- VK Group Token and Group ID
+- VK access token with the required scopes will be provided by the frontend at request time
 
 ## Installation
 
@@ -40,8 +40,6 @@ Backend proxy server for cross-posting content to Telegram and VK.
    ```env
    PORT=3000
    TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
-   VK_GROUP_TOKEN=your_vk_group_token_here
-   VK_GROUP_ID=your_vk_group_id_here
    API_KEY=your_secret_api_key_here
    NODE_ENV=development
    ```
@@ -64,8 +62,8 @@ Backend proxy server for cross-posting content to Telegram and VK.
 - `POST /api/telegram/sendMediaGroup` - Send media group
 
 ### VK Integration
-- `POST /api/vk/post` - Create post in VK group
-- `POST /api/vk/uploadPhoto` - Upload photo to VK
+- `POST /api/vk/post` - Create post in VK using the provided access token
+- `POST /api/vk/uploadPhoto` - Upload wall photo in VK and obtain attachment id
 
 ## Usage
 
@@ -125,17 +123,26 @@ curl -X POST http://localhost:3000/api/vk/post \
   -H "x-api-key: your_api_key" \
   -H "Content-Type: application/json" \
   -d '{
+    "access_token": "vk_user_or_group_access_token",
+    "owner_id": -123456789,
     "message": "Hello from Cross-Poster!",
-    "attachments": "photo123456_789012345"
+    "attachments": ["photo123456789_987654321"]
   }'
 ```
+
+- `owner_id` should be negative for communities and positive for user walls.
+- `attachments` can be a string or an array of attachment identifiers.
 
 #### Upload Photo
 ```bash
 curl -X POST http://localhost:3000/api/vk/uploadPhoto \
   -H "x-api-key: your_api_key" \
-  -F "photo=@/path/to/image.jpg"
+  -F "photo=@/path/to/image.jpg" \
+  -F "access_token=vk_user_or_group_access_token" \
+  -F "owner_id=-123456789"
 ```
+
+The upload response contains an `attachment` value that can be forwarded to `POST /api/vk/post`.
 
 ## Security Features
 
@@ -151,8 +158,6 @@ curl -X POST http://localhost:3000/api/vk/uploadPhoto \
 |----------|-------------|----------|
 | PORT | Server port (default: 3000) | No |
 | TELEGRAM_BOT_TOKEN | Telegram bot token | Yes |
-| VK_GROUP_TOKEN | VK group token | Yes |
-| VK_GROUP_ID | VK group ID | Yes |
 | API_KEY | Secret API key for authentication | Yes |
 | NODE_ENV | Environment (development/production) | No |
 
@@ -162,12 +167,12 @@ The project is written in TypeScript and follows a standard Express.js structure
 
 ```
 src/
-├── controllers/     # Request handlers
-├── middleware/     # Custom middleware
-├── routes/         # API route definitions
-├── services/       # Business logic and API integrations
-├── types/          # TypeScript interfaces and types
-└── index.ts        # Application entry point
+controllers/     # Request handlers
+middleware/      # Custom middleware
+routes/          # API route definitions
+services/        # Business logic and API integrations
+types/           # TypeScript interfaces and types
+index.ts         # Application entry point
 ```
 
 ## Error Handling

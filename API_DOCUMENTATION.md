@@ -1,33 +1,34 @@
-# Cross-Poster API Documentation
+﻿# Документация API Cross-Poster
 
-This API provides endpoints for cross-posting content to Telegram and VKontakte (VK) social networks.
+Cross-Poster API позволяет отправлять сообщения и вложения в Telegram и ВКонтакте через единый HTTP-интерфейс.
 
-## Base URL
+## Базовый URL
 
 ```
 http://localhost:3000/api
 ```
 
-## Authentication
+## Аутентификация
 
-All endpoints except the health check require authentication using an API key in the header:
+Все запросы (кроме проверки состояния) должны содержать заголовок с API-ключом:
 
 ```
-x-api-key: YOUR_SECRET_API_KEY
+x-api-key: ВАШ_СЕКРЕТНЫЙ_API_KEY
 ```
 
-You can set your API key in the `.env` file using the `API_KEY` variable.
+Значение ключа задаётся в переменной `API_KEY` файла `.env`.
 
-## Rate Limiting
+## Ограничения по частоте запросов
 
-The API implements rate limiting:
-- Maximum 100 requests per IP address per 15 minutes
+- не более 100 запросов с одного IP-адреса за 15 минут.
 
-## Common Response Format
+При превышении лимита сервер возвращает ответ `429 Too Many Requests`.
 
-All API responses follow this structure:
+## Формат ответов
 
-### Success Response
+API всегда возвращает JSON с признаком успеха запроса.
+
+### Успешный ответ
 ```json
 {
   "success": true,
@@ -35,26 +36,26 @@ All API responses follow this structure:
 }
 ```
 
-### Error Response
+### Ошибочный ответ
 ```json
 {
   "success": false,
   "error": {
     "code": 400,
-    "message": "Error description"
+    "message": "Описание ошибки"
   }
 }
 ```
 
-## Endpoints
+## Эндпоинты
 
-### Health Check
+### Проверка состояния сервиса
 
 #### `GET /api/health`
 
-Health check endpoint to verify if the service is running.
+Позволяет убедиться, что сервис работает и принимает запросы.
 
-**Response:**
+**Ответ**
 ```json
 {
   "success": true,
@@ -66,228 +67,196 @@ Health check endpoint to verify if the service is running.
 }
 ```
 
-### Telegram Endpoints
+### Telegram
 
 #### `POST /api/telegram/sendMessage`
 
-Send a text message to a Telegram chat.
+Отправляет текстовое сообщение в указанный чат или канал.
 
-**Headers:**
+**Заголовки**
 ```
 Content-Type: application/json
-x-api-key: YOUR_SECRET_API_KEY
+x-api-key: ВАШ_СЕКРЕТНЫЙ_API_KEY
 ```
 
-**Request Body:**
-```json
-{
-  "chat_id": "123456789",  // Required: Chat ID or username
-  "text": "Hello, world!", // Required: Message text
-  "parse_mode": "HTML",    // Optional: "Markdown" or "HTML"
-  "disable_web_page_preview": false, // Optional
-  "disable_notification": false,     // Optional
-  "reply_to_message_id": 123,        // Optional
-  "allow_sending_without_reply": true // Optional
-}
-```
+**Тело запроса**
+- `chat_id` — обязателен. Идентификатор чата или @username.
+- `text` — обязателен. Текст сообщения.
+- `parse_mode` — необязателен. Форматирование `Markdown` или `HTML`.
+- `disable_web_page_preview` — необязателен. `true`, если нужно скрыть превью ссылок.
+- `disable_notification` — необязателен. `true`, если нужно отправить без звука.
+- `reply_to_message_id` — необязателен. ID сообщения, на которое отправляется ответ.
+- `allow_sending_without_reply` — необязателен. `true`, чтобы отправить сообщение, даже если исходное удалено.
 
-**Response:**
+**Ответ**
 ```json
 {
   "success": true,
-  "data": {
-    // Telegram API response
-  }
+  "data": { /* ответ Telegram */ }
 }
 ```
 
 #### `POST /api/telegram/sendPhoto`
 
-Send a photo to a Telegram chat.
+Отправляет фотографию в чат. Поддерживаются ссылка/`file_id` или загрузка файла.
 
-**Headers:**
-```
-Content-Type: application/json
-x-api-key: YOUR_SECRET_API_KEY
-```
+**Заголовки**
+- для JSON-запроса: `Content-Type: application/json`
+- для загрузки файла: `Content-Type: multipart/form-data`
+- во всех случаях: `x-api-key: ВАШ_СЕКРЕТНЫЙ_API_KEY`
 
-**Request Body:**
-```json
-{
-  "chat_id": "123456789",  // Required: Chat ID or username
-  "photo": "https://example.com/photo.jpg", // Required: Photo URL or file_id
-  "caption": "Photo caption", // Optional
-  "parse_mode": "HTML",       // Optional: "Markdown" or "HTML"
-  "disable_notification": false, // Optional
-  "reply_to_message_id": 123,    // Optional
-  "allow_sending_without_reply": true // Optional
-}
-```
+**Тело запроса**
+- `chat_id` — обязателен. Идентификатор чата или @username.
+- `photo` — обязателен при JSON-запросе. Ссылка или `file_id`. Для загрузки файла передаётся как поле `photo` формы.
+- `caption` — необязателен. Подпись к фото.
+- `parse_mode` — необязателен. `Markdown` или `HTML`.
+- `disable_notification`, `reply_to_message_id`, `allow_sending_without_reply` — необязательные параметры Telegram.
 
-**Response:**
+**Ответ**
 ```json
 {
   "success": true,
-  "data": {
-    // Telegram API response
-  }
+  "data": { /* ответ Telegram */ }
 }
 ```
 
 #### `POST /api/telegram/sendMediaGroup`
 
-Send a group of media (photos, videos, etc.) to a Telegram chat.
+Публикует группу вложений (фото, видео и т. д.) одним сообщением.
 
-**Headers:**
+**Заголовки**
 ```
 Content-Type: application/json
-x-api-key: YOUR_SECRET_API_KEY
+x-api-key: ВАШ_СЕКРЕТНЫЙ_API_KEY
 ```
 
-**Request Body:**
-```json
-{
-  "chat_id": "123456789",  // Required: Chat ID or username
-  "media": [               // Required: Array of media objects (min 2)
-    {
-      "type": "photo",     // Required: "photo", "video", "audio", or "document"
-      "media": "https://example.com/photo1.jpg", // Required: URL or file_id
-      "caption": "Caption 1", // Optional
-      "parse_mode": "HTML"    // Optional: "Markdown" or "HTML"
-    },
-    {
-      "type": "photo",
-      "media": "https://example.com/photo2.jpg",
-      "caption": "Caption 2"
-    }
-  ],
-  "disable_notification": false, // Optional
-  "reply_to_message_id": 123,    // Optional
-  "allow_sending_without_reply": true // Optional
-}
-```
+**Тело запроса**
+- `chat_id` — обязателен. Идентификатор чата или @username.
+- `media` — обязателен. Массив минимум из двух элементов. Каждый элемент содержит:
+  - `type` — тип вложения (`photo`, `video`, `audio`, `document`).
+  - `media` — ссылка или `file_id`.
+  - `caption` — необязателен. Подпись к элементу.
+  - `parse_mode` — необязателен. `Markdown` или `HTML`.
+- `disable_notification`, `reply_to_message_id`, `allow_sending_without_reply` — необязательные параметры Telegram.
 
-**Response:**
+**Ответ**
 ```json
 {
   "success": true,
-  "data": {
-    // Telegram API response
-  }
+  "data": { /* ответ Telegram */ }
 }
 ```
 
-### VK Endpoints
+### ВКонтакте (VK)
 
 #### `POST /api/vk/uploadPhoto`
 
-Upload a photo to VK.
+Загружает фотографию на стену ВКонтакте и возвращает данные для прикрепления к посту.
 
-**Headers:**
+**Заголовки**
 ```
 Content-Type: multipart/form-data
-x-api-key: YOUR_SECRET_API_KEY
+x-api-key: ВАШ_СЕКРЕТНЫЙ_API_KEY
 ```
 
-**Form Data:**
-```
-photo: [file] // Required: Photo file to upload
-```
+**Поля формы**
+- `photo` — обязателен. Файл изображения.
+- `access_token` — обязателен. Пользовательский или групповой access token с правами `photos` и `wall`.
+- `owner_id` — обязателен. ID стены, куда будет публиковаться контент. Для сообщества — отрицательное значение (например, `-123456789`), для пользователя — положительное.
 
-**Response:**
+**Ответ**
 ```json
 {
   "success": true,
   "data": {
-    // VK upload response
+    "id": 987654321,
+    "owner_id": -123456789,
+    "attachment": "photo-123456789_987654321"
   }
 }
 ```
+
+Полученное значение `attachment` можно напрямую использовать при создании поста.
 
 #### `POST /api/vk/post`
 
-Create a post in VK.
+Создаёт запись на стене сообщества или пользователя ВКонтакте.
 
-**Headers:**
+**Заголовки**
 ```
 Content-Type: application/json
-x-api-key: YOUR_SECRET_API_KEY
+x-api-key: ВАШ_СЕКРЕТНЫЙ_API_KEY
 ```
 
-**Request Body:**
-```json
-{
-  "message": "Hello, VK!", // Optional: Post text
-  "attachments": "photo123456_789012", // Optional: Comma-separated attachment IDs
-  "owner_id": 123456789,   // Required: Group or user ID
-  "from_group": 1,         // Optional: 1 to post from group name
-  "signed": 0              // Optional: 1 to add signature
-}
-```
+**Тело запроса**
+- `access_token` — обязателен. Пользовательский или групповой токен с правами `wall`.
+- `owner_id` — обязателен. ID стены (отрицательное для сообщества, положительное для пользователя).
+- `message` — необязателен. Текст поста.
+- `attachments` — необязателен. Строка или массив ID вложений (например, `"photo123_456"` или `["photo123_456"]`).
+- `from_group` — необязателен. `1`, чтобы публиковать от имени сообщества. По умолчанию определяется автоматически: для отрицательного `owner_id` — `1`, иначе `0`.
+- `signed` — необязателен. `1`, чтобы добавить подпись автора.
 
-**Response:**
+**Ответ**
 ```json
 {
   "success": true,
-  "data": {
-    // VK API response
-  }
+  "data": { /* ответ VK */ }
 }
 ```
 
-## Error Codes
+## Коды ошибок
 
-| Code | Description |
-|------|-------------|
-| 400 | Bad Request - Invalid request data |
-| 401 | Unauthorized - Missing or invalid API key |
-| 403 | Forbidden - API key provided but invalid |
-| 429 | Too Many Requests - Rate limit exceeded |
-| 500 | Internal Server Error - Something went wrong on the server |
+| Код | Описание |
+| --- | --- |
+| 400 | Неверные данные запроса |
+| 401 | Отсутствует или неверный API-ключ/токен VK |
+| 403 | Доступ запрещён |
+| 429 | Превышен лимит запросов |
+| 500 | Внутренняя ошибка сервера |
 
-## Environment Variables
-
-The following environment variables should be set in your `.env` file:
+## Переменные окружения
 
 ```
-PORT=3000                           # Server port
-TELEGRAM_BOT_TOKEN=your_token_here  # Telegram bot token
-VK_GROUP_TOKEN=your_token_here      # VK group token
-VK_GROUP_ID=your_group_id_here      # VK group ID
-API_KEY=your_secret_key_here        # API authentication key
-NODE_ENV=development                # Environment (development/production)
+PORT=3000
+TELEGRAM_BOT_TOKEN=your_token_here
+API_KEY=your_secret_key_here
+NODE_ENV=development
 ```
 
-## Usage Examples
+## Примеры запросов
 
-### Sending a Telegram Message
+### Отправка сообщения в Telegram
 
 ```bash
 curl -X POST http://localhost:3000/api/telegram/sendMessage \
   -H "Content-Type: application/json" \
-  -H "x-api-key: YOUR_SECRET_API_KEY" \
+  -H "x-api-key: ВАШ_СЕКРЕТНЫЙ_API_KEY" \
   -d '{
     "chat_id": "123456789",
-    "text": "Hello from Cross-Poster API!"
+    "text": "Привет от Cross-Poster API!"
   }'
 ```
 
-### Uploading a Photo to VK
+### Загрузка фотографии во ВКонтакте
 
 ```bash
 curl -X POST http://localhost:3000/api/vk/uploadPhoto \
-  -H "x-api-key: YOUR_SECRET_API_KEY" \
-  -F "photo=@/path/to/photo.jpg"
+  -H "x-api-key: ВАШ_СЕКРЕТНЫЙ_API_KEY" \
+  -F "photo=@/path/to/photo.jpg" \
+  -F "access_token=VK_ACCESS_TOKEN" \
+  -F "owner_id=-123456789"
 ```
 
-### Creating a VK Post
+### Создание поста во ВКонтакте
 
 ```bash
 curl -X POST http://localhost:3000/api/vk/post \
   -H "Content-Type: application/json" \
-  -H "x-api-key: YOUR_SECRET_API_KEY" \
+  -H "x-api-key: ВАШ_СЕКРЕТНЫЙ_API_KEY" \
   -d '{
-    "message": "Check out this photo!",
-    "owner_id": 123456789
+    "access_token": "VK_ACCESS_TOKEN",
+    "owner_id": -123456789,
+    "message": "Посмотрите на эту фотографию!",
+    "attachments": ["photo-123456789_987654321"]
   }'
 ```
