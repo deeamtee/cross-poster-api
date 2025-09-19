@@ -26,6 +26,6 @@ router.post('/sendPhoto', upload.single('photo'), sendPhoto);
  * POST /api/telegram/sendMediaGroup
  * Send a media group to Telegram
  */
-router.post('/sendMediaGroup', validateSendMediaGroup, sendMediaGroup);
+router.post('/sendMediaGroup', upload.any(), validateSendMediaGroup, sendMediaGroup);
 
 export default router;

@@ -37,7 +37,25 @@ export const validateSendPhoto = [
  */
 export const validateSendMediaGroup = [
   body('chat_id').notEmpty().withMessage('Chat ID is required'),
-  body('media').isArray({ min: 2 }).withMessage('Media must be an array with at least 2 items')
+  body('media')
+    .custom((value, { req }) => {
+      let mediaValue = value;
+
+      if (typeof mediaValue === 'string') {
+        try {
+          mediaValue = JSON.parse(mediaValue);
+          req.body.media = mediaValue;
+        } catch (error) {
+          throw new Error('Media must be a valid JSON array');
+        }
+      }
+
+      if (!Array.isArray(mediaValue) || mediaValue.length < 2) {
+        throw new Error('Media must be an array with at least 2 items');
+      }
+
+      return true;
+    })
 ];
 
 /**
@@ -136,8 +154,76 @@ export const sendMediaGroup = async (req: Request, res: Response) => {
       throw new ApiError(400, 'Validation failed: ' + JSON.stringify(errors.array()));
     }
 
-    const data: TelegramSendMediaGroupRequest = req.body;
-    const result = await telegramService.sendMediaGroup(data);
+    const files = Array.isArray(req.files) ? (req.files as Express.Multer.File[]) : [];
+
+    let rawMedia = req.body.media;
+
+    if (typeof rawMedia === 'string') {
+      try {
+        rawMedia = JSON.parse(rawMedia);
+      } catch (error) {
+        throw new ApiError(400, 'Validation failed: Media must be a valid JSON array');
+      }
+    }
+
+    if (!Array.isArray(rawMedia)) {
+      throw new ApiError(400, 'Validation failed: Media must be an array with at least 2 items');
+    }
+
+    const mediaItems = rawMedia.map((item: any, index: number) => {
+      if (typeof item === 'string') {
+        try {
+          item = JSON.parse(item);
+        } catch (error) {
+          throw new ApiError(400, `Validation failed: Media item at index ${index} must be a valid JSON object`);
+        }
+      }
+
+      if (!item || typeof item !== 'object') {
+        throw new ApiError(400, `Validation failed: Media item at index ${index} must be an object`);
+      }
+
+      if (!item.type || !item.media) {
+        throw new ApiError(400, `Validation failed: Media item at index ${index} must include type and media fields`);
+      }
+
+      const mediaEntry: TelegramSendMediaGroupRequest['media'][number] = {
+        type: item.type,
+        media: item.media,
+        caption: item.caption,
+        parse_mode: item.parse_mode
+      };
+
+      if (item.has_spoiler !== undefined) {
+        mediaEntry.has_spoiler = item.has_spoiler;
+      }
+
+      if (item.disable_content_type_detection !== undefined) {
+        mediaEntry.disable_content_type_detection = item.disable_content_type_detection;
+      }
+
+      return mediaEntry;
+    });
+
+    const replyToMessageId = typeof req.body.reply_to_message_id !== 'undefined'
+      ? Number(req.body.reply_to_message_id)
+      : undefined;
+
+    const data: TelegramSendMediaGroupRequest = {
+      chat_id: req.body.chat_id,
+      media: mediaItems,
+      disable_notification: typeof req.body.disable_notification !== 'undefined'
+        ? req.body.disable_notification === true || req.body.disable_notification === 'true'
+        : undefined,
+      reply_to_message_id: typeof replyToMessageId === 'number' && !Number.isNaN(replyToMessageId)
+        ? replyToMessageId
+        : undefined,
+      allow_sending_without_reply: typeof req.body.allow_sending_without_reply !== 'undefined'
+        ? req.body.allow_sending_without_reply === true || req.body.allow_sending_without_reply === 'true'
+        : undefined
+    };
+
+    const result = await telegramService.sendMediaGroup(data, files);
 
     if (!result.success) {
       throw new ApiError(result.error?.code || 500, result.error?.message || 'Failed to send media group');

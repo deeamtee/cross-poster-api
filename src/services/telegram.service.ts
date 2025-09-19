@@ -1,5 +1,6 @@
 import axios, { AxiosResponse } from 'axios';
 import FormData from 'form-data';
+import type { Express } from 'express';
 import {
   TelegramSendMessageRequest,
   TelegramSendPhotoRequest,
@@ -92,12 +93,50 @@ export class TelegramService {
     }
   }
 
-  async sendMediaGroup(data: TelegramSendMediaGroupRequest): Promise<ApiResponse> {
+  async sendMediaGroup(
+    data: TelegramSendMediaGroupRequest,
+    files: Express.Multer.File[] = []
+  ): Promise<ApiResponse> {
     try {
-      const response: AxiosResponse<TelegramResponse> = await axios.post(
-        `${this.apiUrl}/sendMediaGroup`,
-        data
-      );
+      let response: AxiosResponse<TelegramResponse>;
+
+      if (files.length > 0) {
+        const formData = new FormData();
+        formData.append('chat_id', data.chat_id.toString());
+        formData.append('media', JSON.stringify(data.media));
+
+        files.forEach((file) => {
+          formData.append(file.fieldname, file.buffer, {
+            filename: file.originalname || `${file.fieldname}.jpg`,
+            contentType: file.mimetype
+          });
+        });
+
+        if (typeof data.disable_notification !== 'undefined') {
+          formData.append('disable_notification', String(data.disable_notification));
+        }
+        if (typeof data.reply_to_message_id !== 'undefined') {
+          formData.append('reply_to_message_id', String(data.reply_to_message_id));
+        }
+        if (typeof data.allow_sending_without_reply !== 'undefined') {
+          formData.append('allow_sending_without_reply', String(data.allow_sending_without_reply));
+        }
+
+        response = await axios.post(
+          `${this.apiUrl}/sendMediaGroup`,
+          formData,
+          {
+            headers: {
+              ...formData.getHeaders()
+            }
+          }
+        );
+      } else {
+        response = await axios.post(
+          `${this.apiUrl}/sendMediaGroup`,
+          data
+        );
+      }
 
       return {
         success: response.data.ok,

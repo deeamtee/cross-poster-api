@@ -26,6 +26,8 @@ export interface TelegramSendMediaGroupRequest {
     media: string;
     caption?: string;
     parse_mode?: 'Markdown' | 'HTML';
+    has_spoiler?: boolean;
+    disable_content_type_detection?: boolean;
   }>;
   disable_notification?: boolean;
   reply_to_message_id?: number;
