@@ -1,36 +1,30 @@
-import { Request, Response, NextFunction } from 'express';
+﻿import type { Request, Response, NextFunction } from 'express';
+import { authService } from '../services/auth';
 
 /**
- * Middleware to authenticate API requests using API key
+ * Middleware to authenticate API requests using bearer tokens
  */
-export const authenticateApiKey = (req: Request, res: Response, next: NextFunction) => {
-  // Skip authentication for health check endpoint
-  if (req.path === '/api/health' || req.path === '/api/health/') {
+export const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
+  if (req.path.startsWith('/api/health') || req.path.startsWith('/api/auth')) {
     return next();
   }
 
-  const apiKey = req.headers['x-api-key'] as string;
-  const expectedApiKey = process.env.API_KEY;
-
-  if (!apiKey) {
-    return res.status(401).json({
-      success: false,
-      error: {
-        code: 401,
-        message: 'API key is required'
-      }
-    });
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).json({ success: false, error: { code: 401, message: 'Authorization header missing' } });
   }
 
-  if (!expectedApiKey || apiKey !== expectedApiKey) {
-    return res.status(403).json({
-      success: false,
-      error: {
-        code: 403,
-        message: 'Invalid API key'
-      }
-    });
+  const [scheme, token] = authHeader.split(' ');
+  if (scheme !== 'Bearer' || !token) {
+    return res.status(401).json({ success: false, error: { code: 401, message: 'Invalid authorization header format' } });
   }
 
-  next();
+  try {
+    const decoded = authService.verifyToken(token);
+    req.user = decoded;
+    return next();
+  } catch (error) {
+    console.error('Token verification failed', error);
+    return res.status(401).json({ success: false, error: { code: 401, message: 'Invalid or expired token' } });
+  }
 };
