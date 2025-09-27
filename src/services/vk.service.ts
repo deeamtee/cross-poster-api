@@ -1,4 +1,4 @@
-﻿import axios, { AxiosResponse } from 'axios';
+import axios, { AxiosResponse } from 'axios';
 import FormData from 'form-data';
 import {
   VkPostRequest,
@@ -6,6 +6,7 @@ import {
   VkUploadPhotoResponse,
   VkSavePhotoResponse,
   VkApiResponse,
+  VkGroupsRequest,
   ApiResponse
 } from '../types';
 
@@ -28,6 +29,60 @@ export class VkService {
 
   private resolveAccessToken(token?: string): string {
     return typeof token === 'string' ? token.trim() : '';
+  }
+
+  async getAdminGroups(options: VkGroupsRequest): Promise<ApiResponse> {
+    try {
+      const accessToken = this.resolveAccessToken(options?.access_token);
+      if (!accessToken) {
+        return {
+          success: false,
+          error: {
+            code: 401,
+            message: 'VK access token is required'
+          }
+        };
+      }
+
+      const params: Record<string, string> = {
+        access_token: accessToken,
+        v: VK_API_VERSION,
+        filter: options?.filter && options.filter.length > 0 ? options.filter : 'admin',
+        extended: String(typeof options?.extended === 'number' ? options.extended : 1),
+        fields: options?.fields && options.fields.length > 0
+          ? options.fields
+          : 'screen_name,photo_50,photo_100,photo_200',
+      };
+
+      if (typeof options?.offset === 'number') {
+        params.offset = String(options.offset);
+      }
+
+      if (typeof options?.count === 'number') {
+        params.count = String(options.count);
+      }
+
+      const response: AxiosResponse<VkApiResponse> = await axios.get(
+        `${this.apiUrl}/groups.get`,
+        { params }
+      );
+
+      if (response.data.error) {
+        return {
+          success: false,
+          error: this.transformVkError(response.data.error)
+        };
+      }
+
+      const payload = response.data.response ?? {};
+
+      return {
+        success: true,
+        data: payload
+      };
+    } catch (error: any) {
+      return this.handleError(error);
+    }
   }
 
   async createPost(data: VkPostRequest): Promise<ApiResponse> {

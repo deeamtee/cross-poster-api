@@ -3,7 +3,9 @@ import {
   createPost,
   uploadPhoto,
   validatePost,
-  upload
+  upload,
+  getAdminGroups,
+  validateGroupsRequest,
 } from '../controllers/vk.controller';
 
 const router = express.Router();
@@ -13,6 +15,12 @@ const router = express.Router();
  * Create a post in VK
  */
 router.post('/post', validatePost, createPost);
+
+/**
+ * POST /api/vk/groups
+ * Fetch communities administered by the user
+ */
+router.post('/groups', validateGroupsRequest, getAdminGroups);
 
 /**
  * POST /api/vk/uploadPhoto

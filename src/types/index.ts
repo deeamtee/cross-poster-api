@@ -86,6 +86,20 @@ export interface VkApiResponse {
   };
 }
 
+export interface VkGroupsRequest {
+  access_token: string;
+  filter?: string;
+  fields?: string;
+  extended?: 0 | 1;
+  offset?: number;
+  count?: number;
+}
+
+export interface VkGroupsGetResponse {
+  count: number;
+  items: Array<Record<string, unknown>>;
+}
+
 // Common Types
 export interface ApiResponse {
   success: boolean;

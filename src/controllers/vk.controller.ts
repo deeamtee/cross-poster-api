@@ -1,9 +1,9 @@
-﻿import { Request, Response } from 'express';
+import { Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import multer from 'multer';
 import { VkService } from '../services/vk.service';
 import { ApiError } from '../middleware/errorHandler';
-import { VkPostRequest } from '../types';
+import { VkPostRequest, VkGroupsRequest } from '../types';
 
 const vkService = new VkService();
 const mapVkErrorCodeToHttpStatus = (code?: number): number => {
@@ -71,6 +71,42 @@ export const validatePost = [
   body('from_group').optional().isInt({ min: 0, max: 1 }).withMessage('from_group must be 0 or 1'),
   body('signed').optional().isInt({ min: 0, max: 1 }).withMessage('signed must be 0 or 1')
 ];
+
+export const validateGroupsRequest = [
+  body('access_token').notEmpty().withMessage('Access token is required'),
+  body('filter').optional().isString(),
+  body('fields').optional().isString(),
+  body('extended').optional().isInt({ min: 0, max: 1 }),
+  body('offset').optional().isInt({ min: 0 }),
+  body('count').optional().isInt({ min: 0 })
+];
+
+/**
+ * Fetch VK communities where the user is an admin
+ */
+export const getAdminGroups = async (req: Request, res: Response): Promise<Response> => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new ApiError(400, 'Validation failed: ' + JSON.stringify(errors.array()));
+    }
+
+    const params = req.body as VkGroupsRequest;
+    const result = await vkService.getAdminGroups(params);
+
+    if (!result.success) {
+      const status = mapVkErrorCodeToHttpStatus(result.error?.code);
+      return res.status(status).json(result);
+    }
+
+    return res.json(result);
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError(500, 'Internal server error');
+  }
+};
 
 /**
  * Create a post in VK
